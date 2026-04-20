@@ -1240,12 +1240,12 @@ local function saveConfig()
         tpAutoEnabled=G_tpAutoEnabled,
         autoPlayAfterTP=G_autoPlayAfterTP,
     }
-    if writefile then pcall(function() writefile("FXBHubConfig.json",HttpService:JSONEncode(cfg)) end) end
+    if writefile then pcall(function() writefile("SWEETYHubConfig.json",HttpService:JSONEncode(cfg)) end) end
 end
 task.spawn(function() while task.wait(5) do saveConfig() end end)
 local function loadConfig()
-    if not (isfile and isfile("FXBHubConfig.json")) then return end
-    local ok,cfg=pcall(function() return HttpService:JSONDecode(readfile("FXBHubConfig.json")) end)
+    if not (isfile and isfile("SWEETYHubConfig.json")) then return end
+    local ok,cfg=pcall(function() return HttpService:JSONDecode(readfile("SWEETYHubConfig.json")) end)
     if not ok or not cfg then return end
     if cfg.normalSpeed  then NORMAL_SPEED=cfg.normalSpeed end
     if cfg.carrySpeed   then CARRY_SPEED=cfg.carrySpeed   end
@@ -1549,7 +1549,7 @@ local titleLabel = Instance.new("TextLabel", topBar)
 titleLabel.Size = getMobileOptimized(UDim2.new(0,200,0,22),UDim2.new(0,120,0,16))
 titleLabel.Position = getMobileOptimized(UDim2.new(0.5,-100,0,6),UDim2.new(0.5,-60,0,4))
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "FXB Hub"
+titleLabel.Text = "SWEETY Hub"
 titleLabel.TextColor3 = C_WHITE
 titleLabel.Font = Enum.Font.GothamBlack
 titleLabel.TextSize = getMobileOptimized(20,15)
@@ -1559,7 +1559,7 @@ local subLabel = Instance.new("TextLabel", topBar)
 subLabel.Size = getMobileOptimized(UDim2.new(0,200,0,14),UDim2.new(0,120,0,10))
 subLabel.Position = getMobileOptimized(UDim2.new(0.5,-100,0,28),UDim2.new(0.5,-60,0,20))
 subLabel.BackgroundTransparency = 1
-subLabel.Text = "discord.gg/ZuW2d7dd"
+subLabel.Text = "discord.gg/KAzAHhV8VA"
 subLabel.TextColor3 = C_DIM
 subLabel.TextTransparency = 0.2
 subLabel.Font = Enum.Font.Gotham
@@ -1718,7 +1718,7 @@ Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
 local reopenBtn = Instance.new("TextButton", gui)
 reopenBtn.Size = UDim2.new(0,45,0,45); reopenBtn.Position = UDim2.new(0,10,0,70)
 reopenBtn.BackgroundColor3 = C_PURPLE; reopenBtn.BorderSizePixel = 0
-reopenBtn.Text = "FXB"; reopenBtn.TextColor3 = C_WHITE
+reopenBtn.Text = "SWEETY"; reopenBtn.TextColor3 = C_WHITE
 reopenBtn.Font = Enum.Font.GothamBlack; reopenBtn.TextSize = 16; reopenBtn.ZIndex = 20; reopenBtn.Visible = false
 reopenBtn.Parent = gui
 Instance.new("UICorner", reopenBtn).CornerRadius = UDim.new(0, 10)
@@ -2211,7 +2211,7 @@ do
             resetBtn.Text = "RESET"
             resetBtn.BackgroundColor3 = C_RED
             if writefile then
-                pcall(function() writefile("FXBHubConfig.json", "{}") end)
+                pcall(function() writefile("SWEETYHubConfig.json", "{}") end)
             end
             resetBtn.Text = "DONE!"
             resetBtn.BackgroundColor3 = Color3.fromRGB(50,180,50)
@@ -2320,7 +2320,7 @@ whiteCircle.BackgroundColor3 = C_WHITE; whiteCircle.BorderSizePixel = 0; whiteCi
 Instance.new("UICorner", whiteCircle).CornerRadius = UDim.new(1, 0)
 local badgeText = Instance.new("TextLabel", buyerBadge)
 badgeText.Size = UDim2.new(1,-20,1,0); badgeText.Position = UDim2.new(0,18,0,0)
-badgeText.BackgroundTransparency = 1; badgeText.Text = "FXB Buyer"; badgeText.TextColor3 = C_WHITE
+badgeText.BackgroundTransparency = 1; badgeText.Text = "SWEETY Buyer"; badgeText.TextColor3 = C_WHITE
 badgeText.Font = Enum.Font.GothamBold; badgeText.TextSize = 10; badgeText.TextXAlignment = Enum.TextXAlignment.Left; badgeText.ZIndex = 5
 local progressBar = Instance.new("Frame", gui)
 progressBar.Size = isMobile and UDim2.new(0,280,0,55) or UDim2.new(0,500,0,65)
@@ -2657,7 +2657,7 @@ task.spawn(function()
     laggerSetter(laggerToggled)
     floatMobileSetter(floatEnabled)
 end)
-print("✓ FXB Hub - Clean Purple/Red UI loaded")
+print("✓ SWEETY Hub - Clean Purple/Red UI loaded")
 end)()
 ;(function()
 local Players=game:GetService("Players")
@@ -3217,7 +3217,7 @@ do
 end
 local alTitle=Instance.new("TextLabel",alMain)
 alTitle.Size=UDim2.new(1,-60,0,25); alTitle.Position=UDim2.new(0,10,0,5)
-alTitle.BackgroundTransparency=1; alTitle.Text="FXB ANTI LAG"; alTitle.TextColor3=FXB_PURPLE
+alTitle.BackgroundTransparency=1; alTitle.Text="SWEETY ANTI LAG"; alTitle.TextColor3=FXB_PURPLE
 alTitle.Font=Enum.Font.GothamBlack; alTitle.TextSize=getMobileOptimized(14,12); alTitle.TextXAlignment=Enum.TextXAlignment.Left
 local alClose=Instance.new("TextButton",alMain)
 alClose.Size=UDim2.new(0,30,0,30); alClose.Position=UDim2.new(1,-35,0,2)
@@ -3274,5 +3274,5 @@ alClose.MouseButton1Click:Connect(function() alMain.Visible=false; alReopenBtn.V
 alReopenBtn.MouseButton1Click:Connect(function() alMain.Visible=true; alReopenBtn.Visible=false end)
 alClose.MouseEnter:Connect(function() TweenService:Create(alClose,TweenInfo.new(0.15),{BackgroundColor3=Color3.fromRGB(255,80,100)}):Play() end)
 alClose.MouseLeave:Connect(function() TweenService:Create(alClose,TweenInfo.new(0.15),{BackgroundColor3=FXB_RED}):Play() end)
-print("✅ FXB ANTI LAG GUI LOADED")
+print("✅ SWEETY ANTI LAG GUI LOADED")
 end)()
