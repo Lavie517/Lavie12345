@@ -75,7 +75,7 @@ local BR_L3 = Vector3.new(-486.5, -3.75, 100.5)
 local BR_R2 = Vector3.new(-475.50, -3.95, 17.55)
 local BR_R3 = Vector3.new(-486.76, -3.95, 17.55)
 local Keybinds = {
-    AutoBat        = Enum.KeyCode.E,
+    AutoBat        = Enum.KeyCode.T,
     SpeedToggle    = Enum.KeyCode.Q,
     LaggerToggle   = Enum.KeyCode.R,
     InfiniteJump   = Enum.KeyCode.M,
@@ -97,11 +97,11 @@ local promptCacheTime= 0
 local Settings = {
     AutoStealEnabled = false,
     StealRadius      = 20,
-    StealDuration    = 0.25,
+    StealDuration    = 0.1,
 }
 local Values = {
     STEAL_RADIUS         = 20,
-    STEAL_DURATION       = 0.2,
+    STEAL_DURATION       = 0.1,
     STEAL_COOLDOWN       = 0.1,
     PLOT_CACHE_DURATION  = 2,
     PROMPT_CACHE_REFRESH = 0.15,
@@ -303,7 +303,7 @@ local function findNearestPrompt()
                     local att = spawn:FindFirstChild("PromptAttachment")
                     if att then
                         for _, ch in ipairs(att:GetChildren()) do
-                            if ch:IsA("ProximityPrompt") then
+if ch:IsA("ProximityPrompt") and ch.Enabled and tostring(ch.ActionText or ""):lower():find("steal") then
                                 table.insert(cachedPrompts, {prompt=ch, spawn=spawn, name=podium.Name})
                                 if dist <= Settings.StealRadius and dist < nearestDist then
                                     nearestPrompt=ch; nearestDist=dist; nearestName=podium.Name
@@ -329,17 +329,8 @@ local function executeSteal(prompt, name)
     if currentTime - lastStealTick < STEAL_COOLDOWN then return end
     if isStealing then return end
     if not StealData[prompt] then
-        StealData[prompt] = {hold={}, trigger={}, ready=true}
-        pcall(function()
-            if getconnections then
-                for _, c in ipairs(getconnections(prompt.PromptButtonHoldBegan)) do
-                    if c.Function then table.insert(StealData[prompt].hold, c.Function) end
-                end
-                for _, c in ipairs(getconnections(prompt.Triggered)) do
-                    if c.Function then table.insert(StealData[prompt].trigger, c.Function) end
-                end
-            else StealData[prompt].useFallback = true end
-        end)
+StealData[prompt] = {hold={}, trigger={}, ready=true, useFallback=true}
+StealData[prompt].useFallback = true
     end
     local data = StealData[prompt]
     if not data.ready then return end
@@ -352,25 +343,23 @@ local function executeSteal(prompt, name)
         if ProgressBarFill      then ProgressBarFill.Size = UDim2.new(prog,0,1,0) end
         if ProgressPercentLabel then ProgressPercentLabel.Text = math.floor(prog*100).."%" end
     end)
-    task.spawn(function()
+task.spawn(function()
         local ok = false
-        pcall(function()
-            if not data.useFallback then
-                for _, f in ipairs(data.hold) do task.spawn(f) end
-                task.wait(Settings.StealDuration)
-                for _, f in ipairs(data.trigger) do task.spawn(f) end
-                ok=true
-            end
-        end)
-        if not ok and fireproximityprompt then
-            pcall(function() fireproximityprompt(prompt); ok=true end)
-        end
-        if not ok then
+        if fireproximityprompt and prompt and prompt.Parent then
             pcall(function()
-                prompt:InputHoldBegin(); task.wait(Settings.StealDuration); prompt:InputHoldEnd(); ok=true
+                fireproximityprompt(prompt)
+                ok = true
             end)
         end
-        task.wait(Settings.StealDuration * 0.3)
+        if not ok and prompt and prompt.Parent then
+            pcall(function()
+                prompt.HoldDuration = 0
+                prompt:InputHoldBegin()
+                prompt:InputHoldEnd()
+                ok = true
+            end)
+        end
+        task.wait(0.15)
         if progressConnection then progressConnection:Disconnect() end
         ResetProgressBar()
         task.wait(0.05)
@@ -379,8 +368,12 @@ local function executeSteal(prompt, name)
 end
 local function startAutoSteal()
     if Connections.autoSteal then return end
+local lastAutoStealCheck = 0
     Connections.autoSteal = RunService.Heartbeat:Connect(function()
-        if not Enabled.AutoSteal or isStealing then return end
+        local now = tick()
+        if now - lastAutoStealCheck < 0.05 then return end
+        lastAutoStealCheck = now
+        if not Enabled.AutoSteal or isStealing then return end  
         local p,_,n = findNearestPrompt()
         if p then
             local char = LocalPlayer.Character
@@ -1225,7 +1218,7 @@ local function saveConfig()
         brainrotReturnLeft=brainrotReturnLeftEnabled,
         brainrotReturnRight=brainrotReturnRightEnabled,
         laggerMode=laggerToggled,
-        sideButtonsVisible=_G.FXBSideButtonsVisible,
+        sideButtonsVisible=_G.FXSSideButtonsVisible,
         harderHitAnim=harderHitAnimEnabled,
         medusaCounter=medusaCounterEnabled,
         floatEnabled=floatEnabled,
@@ -1240,12 +1233,12 @@ local function saveConfig()
         tpAutoEnabled=G_tpAutoEnabled,
         autoPlayAfterTP=G_autoPlayAfterTP,
     }
-    if writefile then pcall(function() writefile("SWEETYHubConfig.json",HttpService:JSONEncode(cfg)) end) end
+    if writefile then pcall(function() writefile("FXSHubConfig.json",HttpService:JSONEncode(cfg)) end) end
 end
 task.spawn(function() while task.wait(5) do saveConfig() end end)
 local function loadConfig()
-    if not (isfile and isfile("SWEETYHubConfig.json")) then return end
-    local ok,cfg=pcall(function() return HttpService:JSONDecode(readfile("SWEETYHubConfig.json")) end)
+    if not (isfile and isfile("FXSHubConfig.json")) then return end
+    local ok,cfg=pcall(function() return HttpService:JSONDecode(readfile("FXSHubConfig.json")) end)
     if not ok or not cfg then return end
     if cfg.normalSpeed  then NORMAL_SPEED=cfg.normalSpeed end
     if cfg.carrySpeed   then CARRY_SPEED=cfg.carrySpeed   end
@@ -1273,7 +1266,7 @@ local function loadConfig()
     if cfg.removeAccessories ~=nil then Enabled.RemoveAccessories=cfg.removeAccessories end
     if cfg.galaxyGravity then Values.GalaxyGravityPercent=cfg.galaxyGravity end
     if cfg.hopPower      then Values.HOP_POWER=cfg.hopPower                end
-    if cfg.sideButtonsVisible~=nil then _G.FXBSideButtonsVisible=cfg.sideButtonsVisible end
+    if cfg.sideButtonsVisible~=nil then _G.FXSSideButtonsVisible=cfg.sideButtonsVisible end
     if cfg.carryMode~=nil then
         if cfg.dropBrainrotKey and Enum.KeyCode[cfg.dropBrainrotKey] then Keybinds.DropBrainrot=Enum.KeyCode[cfg.dropBrainrotKey] end
         if cfg.floatToggleKey and Enum.KeyCode[cfg.floatToggleKey] then Keybinds.FloatToggle=Enum.KeyCode[cfg.floatToggleKey] end
@@ -1378,9 +1371,9 @@ if cfg.fullAutoLeftKey and Enum.KeyCode[cfg.fullAutoLeftKey] then Keybinds.FullA
 end
 loadConfig()
 end)()
-_G.FXBScaleCallbacks = _G.FXBScaleCallbacks or {}
-_G.FXBSideButtonsVisible = true
-_G.FXBSetSideButtonsVisible = nil
+_G.FXSScaleCallbacks = _G.FXSScaleCallbacks or {}
+_G.FXSSideButtonsVisible = true
+_G.FXSSetSideButtonsVisible = nil
 ;(function()
 local tweenCache = {}
 local function getTween(obj, info, props)
@@ -1522,7 +1515,7 @@ local function styleGalaxyButton(btn, active)
     return grad, st
 end
 gui=Instance.new("ScreenGui")
-gui.Name="FXBHubGUI"; gui.ResetOnSpawn=false; gui.DisplayOrder=10
+gui.Name="FXSHubGUI"; gui.ResetOnSpawn=false; gui.DisplayOrder=10
 gui.Parent=LocalPlayer:WaitForChild("PlayerGui")
 local topBar = Instance.new("Frame")
 topBar.Size = getMobileOptimized(UDim2.new(0,420,0,50),UDim2.new(0,280,0,40))
@@ -1549,7 +1542,7 @@ local titleLabel = Instance.new("TextLabel", topBar)
 titleLabel.Size = getMobileOptimized(UDim2.new(0,200,0,22),UDim2.new(0,120,0,16))
 titleLabel.Position = getMobileOptimized(UDim2.new(0.5,-100,0,6),UDim2.new(0.5,-60,0,4))
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "SWEETY Hub"
+titleLabel.Text = "FXS Hub"
 titleLabel.TextColor3 = C_WHITE
 titleLabel.Font = Enum.Font.GothamBlack
 titleLabel.TextSize = getMobileOptimized(20,15)
@@ -1559,7 +1552,7 @@ local subLabel = Instance.new("TextLabel", topBar)
 subLabel.Size = getMobileOptimized(UDim2.new(0,200,0,14),UDim2.new(0,120,0,10))
 subLabel.Position = getMobileOptimized(UDim2.new(0.5,-100,0,28),UDim2.new(0.5,-60,0,20))
 subLabel.BackgroundTransparency = 1
-subLabel.Text = "discord.gg/KAzAHhV8VA"
+subLabel.Text = "discord.gg/ZuW2d7dd"
 subLabel.TextColor3 = C_DIM
 subLabel.TextTransparency = 0.2
 subLabel.Font = Enum.Font.Gotham
@@ -1718,7 +1711,7 @@ Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
 local reopenBtn = Instance.new("TextButton", gui)
 reopenBtn.Size = UDim2.new(0,45,0,45); reopenBtn.Position = UDim2.new(0,10,0,70)
 reopenBtn.BackgroundColor3 = C_PURPLE; reopenBtn.BorderSizePixel = 0
-reopenBtn.Text = "SWEETY"; reopenBtn.TextColor3 = C_WHITE
+reopenBtn.Text = "FXS"; reopenBtn.TextColor3 = C_WHITE
 reopenBtn.Font = Enum.Font.GothamBlack; reopenBtn.TextSize = 16; reopenBtn.ZIndex = 20; reopenBtn.Visible = false
 reopenBtn.Parent = gui
 Instance.new("UICorner", reopenBtn).CornerRadius = UDim.new(0, 10)
@@ -1881,10 +1874,10 @@ local brLeftVisual, _brSwBgL, _brSwCircleL = createToggle(combatPage, "Brainrot 
             TweenService:Create(brSwBgR, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {BackgroundColor3=C_SW_OFF}):Play()
             TweenService:Create(brSwCircleR, TweenInfo.new(0.2, Enum.EasingStyle.Back), {Position=UDim2.new(0,2,0.5,-10)}):Play()
         end
-        if _G.FXBBRSetters and _G.FXBBRSetters.right then _G.FXBBRSetters.right(false) end
+        if _G.FXSBRSetters and _G.FXSBRSetters.right then _G.FXSBRSetters.right(false) end
     end
     brainrotReturnLeftEnabled = on
-    if _G.FXBBRSetters and _G.FXBBRSetters.left then _G.FXBBRSetters.left(on) end
+    if _G.FXSBRSetters and _G.FXSBRSetters.left then _G.FXSBRSetters.left(on) end
 end)
 brSwBgL = _brSwBgL; brSwCircleL = _brSwCircleL
 local brRightVisual, _brSwBgR, _brSwCircleR = createToggle(combatPage, "Brainrot Return R", "", nil, false, O(), function(on)
@@ -1894,13 +1887,13 @@ local brRightVisual, _brSwBgR, _brSwCircleR = createToggle(combatPage, "Brainrot
             TweenService:Create(brSwBgL, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {BackgroundColor3=C_SW_OFF}):Play()
             TweenService:Create(brSwCircleL, TweenInfo.new(0.2, Enum.EasingStyle.Back), {Position=UDim2.new(0,2,0.5,-10)}):Play()
         end
-        if _G.FXBBRSetters and _G.FXBBRSetters.left then _G.FXBBRSetters.left(false) end
+        if _G.FXSBRSetters and _G.FXSBRSetters.left then _G.FXSBRSetters.left(false) end
     end
     brainrotReturnRightEnabled = on
-    if _G.FXBBRSetters and _G.FXBBRSetters.right then _G.FXBBRSetters.right(on) end
+    if _G.FXSBRSetters and _G.FXSBRSetters.right then _G.FXSBRSetters.right(on) end
 end)
 brSwBgR = _brSwBgR; brSwCircleR = _brSwCircleR
-_G.FXBBRSetters = {left=brLeftVisual, right=brRightVisual}
+_G.FXSBRSetters = {left=brLeftVisual, right=brRightVisual}
 local carryToggleCallback
 local speedClk, _speedSwBg, _speedSwCircle = createToggle(combatPage, "Carry Mode", "SpeedToggle", nil, speedToggled, O(), function(on)
     if on and laggerToggled then
@@ -2211,7 +2204,7 @@ do
             resetBtn.Text = "RESET"
             resetBtn.BackgroundColor3 = C_RED
             if writefile then
-                pcall(function() writefile("SWEETYHubConfig.json", "{}") end)
+                pcall(function() writefile("FXSHubConfig.json", "{}") end)
             end
             resetBtn.Text = "DONE!"
             resetBtn.BackgroundColor3 = Color3.fromRGB(50,180,50)
@@ -2320,7 +2313,7 @@ whiteCircle.BackgroundColor3 = C_WHITE; whiteCircle.BorderSizePixel = 0; whiteCi
 Instance.new("UICorner", whiteCircle).CornerRadius = UDim.new(1, 0)
 local badgeText = Instance.new("TextLabel", buyerBadge)
 badgeText.Size = UDim2.new(1,-20,1,0); badgeText.Position = UDim2.new(0,18,0,0)
-badgeText.BackgroundTransparency = 1; badgeText.Text = "SWEETY Buyer"; badgeText.TextColor3 = C_WHITE
+badgeText.BackgroundTransparency = 1; badgeText.Text = "FXS Buyer"; badgeText.TextColor3 = C_WHITE
 badgeText.Font = Enum.Font.GothamBold; badgeText.TextSize = 10; badgeText.TextXAlignment = Enum.TextXAlignment.Left; badgeText.ZIndex = 5
 local progressBar = Instance.new("Frame", gui)
 progressBar.Size = isMobile and UDim2.new(0,280,0,55) or UDim2.new(0,500,0,65)
@@ -2657,7 +2650,7 @@ task.spawn(function()
     laggerSetter(laggerToggled)
     floatMobileSetter(floatEnabled)
 end)
-print("✓ SWEETY Hub - Clean Purple/Red UI loaded")
+print("✓ FXS Hub - Clean Purple/Red UI loaded")
 end)()
 ;(function()
 local Players=game:GetService("Players")
@@ -3118,12 +3111,12 @@ local TweenService=game:GetService("TweenService")
 local Lighting=game:GetService("Lighting")
 local Workspace=game:GetService("Workspace")
 local LocalPlayer=Players.LocalPlayer
-local FXB_BG=Color3.fromRGB(15,15,20)
-local FXB_CARD=Color3.fromRGB(20,20,28)
-local FXB_PURPLE=Color3.fromRGB(147,112,219)
-local FXB_WHITE=Color3.fromRGB(255,255,255)
-local FXB_RED=Color3.fromRGB(220,60,85)
-local FXB_SW_OFF=Color3.fromRGB(40,40,50)
+local FXS_BG=Color3.fromRGB(15,15,20)
+local FXS_CARD=Color3.fromRGB(20,20,28)
+local FXS_PURPLE=Color3.fromRGB(147,112,219)
+local FXS_WHITE=Color3.fromRGB(255,255,255)
+local FXS_RED=Color3.fromRGB(220,60,85)
+local FXS_SW_OFF=Color3.fromRGB(40,40,50)
 local antiLagActive=false
 local removeAccessoriesActive=false
 local descendantConnection=nil
@@ -3188,18 +3181,18 @@ local function disableRemoveAccessories()
     removeAccessoriesActive=false
     if accessoryConnection then accessoryConnection:Disconnect(); accessoryConnection=nil end
 end
-pcall(function() game.CoreGui:FindFirstChild("FXBAntiLagGUI"):Destroy() end)
+pcall(function() game.CoreGui:FindFirstChild("FXSAntiLagGUI"):Destroy() end)
 local alGui=Instance.new("ScreenGui")
-alGui.Name="FXBAntiLagGUI"; alGui.ResetOnSpawn=false; alGui.DisplayOrder=11
+alGui.Name="FXSAntiLagGUI"; alGui.ResetOnSpawn=false; alGui.DisplayOrder=11
 alGui.Parent=LocalPlayer:WaitForChild("PlayerGui")
 local alMain=Instance.new("Frame")
 alMain.Size=getMobileOptimized(UDim2.new(0,220,0,125),UDim2.new(0,200,0,110))
 alMain.Position=getMobileOptimized(UDim2.new(0.02,0,0.3,0),UDim2.new(0.02,0,0.35,0))
-alMain.BackgroundColor3=FXB_BG; alMain.BorderSizePixel=0; alMain.Active=true
+alMain.BackgroundColor3=FXS_BG; alMain.BorderSizePixel=0; alMain.Active=true
 alMain.ClipsDescendants=true; alMain.Parent=alGui
 Instance.new("UICorner",alMain).CornerRadius=UDim.new(0,12)
 local alStroke=Instance.new("UIStroke",alMain)
-alStroke.Color=FXB_PURPLE; alStroke.Thickness=1.5
+alStroke.Color=FXS_PURPLE; alStroke.Thickness=1.5
 do
     local drag,ds,sp=false
     alMain.InputBegan:Connect(function(inp)
@@ -3217,27 +3210,27 @@ do
 end
 local alTitle=Instance.new("TextLabel",alMain)
 alTitle.Size=UDim2.new(1,-60,0,25); alTitle.Position=UDim2.new(0,10,0,5)
-alTitle.BackgroundTransparency=1; alTitle.Text="SWEETY ANTI LAG"; alTitle.TextColor3=FXB_PURPLE
+alTitle.BackgroundTransparency=1; alTitle.Text="FXS ANTI LAG"; alTitle.TextColor3=FXS_PURPLE
 alTitle.Font=Enum.Font.GothamBlack; alTitle.TextSize=getMobileOptimized(14,12); alTitle.TextXAlignment=Enum.TextXAlignment.Left
 local alClose=Instance.new("TextButton",alMain)
 alClose.Size=UDim2.new(0,30,0,30); alClose.Position=UDim2.new(1,-35,0,2)
-alClose.BackgroundColor3=FXB_RED; alClose.BorderSizePixel=0
-alClose.Text="×"; alClose.TextColor3=FXB_WHITE; alClose.Font=Enum.Font.GothamBold; alClose.TextSize=20; alClose.ZIndex=5
+alClose.BackgroundColor3=FXS_RED; alClose.BorderSizePixel=0
+alClose.Text="×"; alClose.TextColor3=FXS_WHITE; alClose.Font=Enum.Font.GothamBold; alClose.TextSize=20; alClose.ZIndex=5
 Instance.new("UICorner",alClose).CornerRadius=UDim.new(0,8)
 local function createToggle(yPos,labelText,callback)
     local container=Instance.new("Frame",alMain)
     container.Size=UDim2.new(1,-20,0,32); container.Position=UDim2.new(0,10,0,yPos)
-    container.BackgroundColor3=FXB_CARD; container.BorderSizePixel=0; container.ZIndex=3
+    container.BackgroundColor3=FXS_CARD; container.BorderSizePixel=0; container.ZIndex=3
     Instance.new("UICorner",container).CornerRadius=UDim.new(0,6)
     local stroke=Instance.new("UIStroke",container)
-    stroke.Color=FXB_PURPLE; stroke.Thickness=1; stroke.Transparency=0.8
+    stroke.Color=FXS_PURPLE; stroke.Thickness=1; stroke.Transparency=0.8
     local label=Instance.new("TextLabel",container)
     label.Size=UDim2.new(1,-70,1,0); label.Position=UDim2.new(0,8,0,0)
-    label.BackgroundTransparency=1; label.Text=labelText; label.TextColor3=FXB_WHITE
+    label.BackgroundTransparency=1; label.Text=labelText; label.TextColor3=FXS_WHITE
     label.Font=Enum.Font.GothamBold; label.TextSize=getMobileOptimized(12,10); label.TextXAlignment=Enum.TextXAlignment.Left; label.ZIndex=4
     local switchBg=Instance.new("Frame",container)
     switchBg.Size=UDim2.new(0,40,0,20); switchBg.Position=UDim2.new(1,-48,0.5,-10)
-    switchBg.BackgroundColor3=FXB_SW_OFF; switchBg.BorderSizePixel=0; switchBg.ZIndex=4
+    switchBg.BackgroundColor3=FXS_SW_OFF; switchBg.BorderSizePixel=0; switchBg.ZIndex=4
     Instance.new("UICorner",switchBg).CornerRadius=UDim.new(1,0)
     local switchCircle=Instance.new("Frame",switchBg)
     switchCircle.Size=UDim2.new(0,16,0,16); switchCircle.Position=UDim2.new(0,2,0.5,-8)
@@ -3248,7 +3241,7 @@ local function createToggle(yPos,labelText,callback)
     btn.Size=UDim2.new(1,0,1,0); btn.BackgroundTransparency=1; btn.Text=""; btn.ZIndex=6
     btn.MouseButton1Click:Connect(function()
         isOn=not isOn
-        TweenService:Create(switchBg,TweenInfo.new(0.2,Enum.EasingStyle.Quint),{BackgroundColor3=isOn and FXB_PURPLE or FXB_SW_OFF}):Play()
+        TweenService:Create(switchBg,TweenInfo.new(0.2,Enum.EasingStyle.Quint),{BackgroundColor3=isOn and FXS_PURPLE or FXS_SW_OFF}):Play()
         TweenService:Create(switchCircle,TweenInfo.new(0.2,Enum.EasingStyle.Back),{Position=isOn and UDim2.new(1,-18,0.5,-8) or UDim2.new(0,2,0.5,-8)}):Play()
         if callback then callback(isOn) end
     end)
@@ -3258,7 +3251,7 @@ local function createToggle(yPos,labelText,callback)
     end)
     btn.MouseLeave:Connect(function()
         TweenService:Create(stroke,TweenInfo.new(0.15),{Transparency=0.8}):Play()
-        TweenService:Create(container,TweenInfo.new(0.15),{BackgroundColor3=FXB_CARD}):Play()
+        TweenService:Create(container,TweenInfo.new(0.15),{BackgroundColor3=FXS_CARD}):Play()
     end)
 end
 createToggle(35,"Anti Lag",function(on) if on then enableAntiLag() else disableAntiLag() end end)
@@ -3266,13 +3259,13 @@ createToggle(72,"Remove Accessories",function(on) if on then enableRemoveAccesso
 local alReopenBtn=Instance.new("TextButton",alGui)
 alReopenBtn.Size=UDim2.new(0,40,0,40)
 alReopenBtn.Position=getMobileOptimized(UDim2.new(0.02,0,0.3,0),UDim2.new(0.02,0,0.35,0))
-alReopenBtn.BackgroundColor3=FXB_PURPLE; alReopenBtn.BorderSizePixel=0
-alReopenBtn.Text="AL"; alReopenBtn.TextColor3=FXB_WHITE
+alReopenBtn.BackgroundColor3=FXS_PURPLE; alReopenBtn.BorderSizePixel=0
+alReopenBtn.Text="AL"; alReopenBtn.TextColor3=FXS_WHITE
 alReopenBtn.Font=Enum.Font.GothamBlack; alReopenBtn.TextSize=14; alReopenBtn.Visible=false; alReopenBtn.ZIndex=20
 Instance.new("UICorner",alReopenBtn).CornerRadius=UDim.new(0,10)
 alClose.MouseButton1Click:Connect(function() alMain.Visible=false; alReopenBtn.Visible=true end)
 alReopenBtn.MouseButton1Click:Connect(function() alMain.Visible=true; alReopenBtn.Visible=false end)
 alClose.MouseEnter:Connect(function() TweenService:Create(alClose,TweenInfo.new(0.15),{BackgroundColor3=Color3.fromRGB(255,80,100)}):Play() end)
-alClose.MouseLeave:Connect(function() TweenService:Create(alClose,TweenInfo.new(0.15),{BackgroundColor3=FXB_RED}):Play() end)
-print("✅ SWEETY ANTI LAG GUI LOADED")
+alClose.MouseLeave:Connect(function() TweenService:Create(alClose,TweenInfo.new(0.15),{BackgroundColor3=FXS_RED}):Play() end)
+print("✅ FXS ANTI LAG GUI LOADED")
 end)()
